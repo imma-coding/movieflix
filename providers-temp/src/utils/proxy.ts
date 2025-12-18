@@ -3,8 +3,20 @@ import { Stream } from '@/providers/streams';
 
 // Default proxy URL for general purpose proxying
 const DEFAULT_PROXY_URL = 'https://proxy.nsbx.ru/proxy';
-// Default M3U8 proxy URL for HLS stream proxying
-let CONFIGURED_M3U8_PROXY_URL = 'https://proxy.pstream.mov';
+// Default M3U8 proxy URL for HLS stream proxying — prefer environment override
+// `NEXT_PUBLIC_PSTREAM_M3U8_PROXY_URL` for browser builds, otherwise default to local API path.
+function defaultM3U8Proxy(): string {
+  try {
+    // NEXT_PUBLIC_* env vars are inlined for client builds in Next/Vite
+    const env = (process && (process.env as any)?.NEXT_PUBLIC_PSTREAM_M3U8_PROXY_URL) as string | undefined;
+    if (env) return env;
+  } catch (e) {
+    // ignore
+  }
+  return '/api/proxy';
+}
+
+let CONFIGURED_M3U8_PROXY_URL = defaultM3U8Proxy();
 
 /**
  * Set a custom M3U8 proxy URL to use for all M3U8 proxy requests
@@ -48,14 +60,16 @@ export function setupProxy(stream: Stream): Stream {
   if (stream.type === 'hls') {
     payload.type = 'hls';
     payload.url = stream.playlist;
-    stream.playlist = `${DEFAULT_PROXY_URL}?${new URLSearchParams({ payload: Buffer.from(JSON.stringify(payload)).toString('base64url') })}`;
+    // Use configured M3U8 proxy URL which expects `url` as base64 and optional `h` headers param
+    stream.playlist = createM3U8ProxyUrl(stream.playlist, undefined, headers);
   }
 
   if (stream.type === 'file') {
     payload.type = 'mp4';
     Object.entries(stream.qualities).forEach((entry) => {
       payload.url = entry[1].url;
-      entry[1].url = `${DEFAULT_PROXY_URL}?${new URLSearchParams({ payload: Buffer.from(JSON.stringify(payload)).toString('base64url') })}`;
+      // Use the M3U8 proxy URL format for file URLs as well so the same server-side proxy can stream segments
+      entry[1].url = createM3U8ProxyUrl(entry[1].url, undefined, headers);
     });
   }
 
@@ -78,10 +92,13 @@ export function createM3U8ProxyUrl(url: string, features?: FeatureMap, headers: 
     return url;
   }
 
-  // Otherwise, use the external M3U8 proxy
-  const encodedUrl = encodeURIComponent(url);
-  const encodedHeaders = encodeURIComponent(JSON.stringify(headers));
-  return `${CONFIGURED_M3U8_PROXY_URL}/m3u8-proxy?url=${encodedUrl}${headers ? `&headers=${encodedHeaders}` : ''}`;
+  // Otherwise, use the configured M3U8 proxy. New proxy signature expected by the app's
+  // Next.js route: `/api/proxy?url=<base64(original)>&h=<base64(encodedHeaders)>`.
+  const b64Url = Buffer.from(url).toString('base64');
+  const hdr = headers && Object.keys(headers).length ? `&h=${encodeURIComponent(Buffer.from(JSON.stringify(headers)).toString('base64'))}` : '';
+  // If CONFIGURED_M3U8_PROXY_URL is an absolute host path (e.g. https://...), use it directly,
+  // otherwise allow relative paths like `/api/proxy`.
+  return `${CONFIGURED_M3U8_PROXY_URL}?url=${encodeURIComponent(b64Url)}${hdr}`;
 }
 
 /**
@@ -90,8 +107,9 @@ export function createM3U8ProxyUrl(url: string, features?: FeatureMap, headers: 
  * @returns The updated M3U8 proxy URL
  */
 export function updateM3U8ProxyUrl(url: string): string {
+  // Replace any old /m3u8-proxy host with the currently-configured proxy base
   if (url.includes('/m3u8-proxy?url=')) {
-    return url.replace(/https:\/\/[^/]+\/m3u8-proxy/, `${CONFIGURED_M3U8_PROXY_URL}/m3u8-proxy`);
+    return url.replace(/https?:\/\/[^/]+\/m3u8-proxy/, `${CONFIGURED_M3U8_PROXY_URL}`);
   }
   return url;
 }

@@ -103,8 +103,9 @@
     "@types/react": "~19.1.0",
     "@types/set-cookie-parser": "^2.4.10",
     "@types/spinnies": "^0.5.3",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
+
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^1.6.1",
     "babel-plugin-module-resolver": "^5.0.0",
     "babel-preset-expo": "^54.0.8",

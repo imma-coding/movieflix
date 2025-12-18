@@ -18,7 +18,7 @@ const getDebridToken = (): string | null => {
     // Ignore
   }
   try {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === 'undefined' || !window.localStorage || typeof window.localStorage.getItem !== 'function') return null;
     const prefData = window.localStorage.getItem('__MW::preferences');
     if (!prefData) return null;
     const parsedAuth = JSON.parse(prefData);
@@ -37,7 +37,7 @@ const getDebridService = (): debridProviders => {
     // Ignore
   }
   try {
-    if (typeof window === 'undefined') return 'real-debrid';
+    if (typeof window === 'undefined' || !window.localStorage || typeof window.localStorage.getItem !== 'function') return 'real-debrid';
     const prefData = window.localStorage.getItem('__MW::preferences');
     if (!prefData) return 'real-debrid';
     const parsedPrefs = JSON.parse(prefData);

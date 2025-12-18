@@ -48,20 +48,20 @@ export default function RootLayout() {
         <CustomThemeProvider>
           <AccentProvider>
             <SubscriptionProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="select-profile" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="post-review" />
-            <Stack.Screen
-              name="calls/[id]"
-              options={{
-                headerShown: false,
-                presentation: 'fullScreenModal',
-              }}
-            />
-          </Stack>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="select-profile" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="post-review" />
+                <Stack.Screen
+                  name="calls/[id]"
+                  options={{
+                    headerShown: false,
+                    presentation: 'fullScreenModal',
+                  }}
+                />
+              </Stack>
             </SubscriptionProvider>
         </AccentProvider>
       </CustomThemeProvider>

@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react';
 import type {
-  ProviderControls,
-  Qualities,
-  RunOutput,
-  ScrapeMedia,
-  Stream,
+    ProviderControls,
+    Qualities,
+    RunOutput,
+    ScrapeMedia,
+    Stream,
 } from '../../providers-temp/lib/index.js';
 import { flags } from '../../providers-temp/lib/index.js';
 
@@ -13,6 +13,7 @@ const {
   makeStandardFetcher,
   targets,
   setupProxy,
+  setM3U8ProxyUrl,
 } = require('../../providers-temp/lib/index.js') as typeof import('../../providers-temp/lib/index.js');
 
 /* ───────── TYPES ───────── */
@@ -68,6 +69,21 @@ let cachedProviders: ProviderControls | null = null;
 
 function getProviders(): ProviderControls {
   if (!cachedProviders) {
+    // When running in the browser, prefer an explicit env override, otherwise
+    // fall back to the app's local API proxy so playlists and segment requests
+    // are routed through `/api/proxy` (Next.js route).
+    if (typeof window !== 'undefined' && typeof setM3U8ProxyUrl === 'function') {
+      try {
+        const envProxy = (process && (process.env as any)?.NEXT_PUBLIC_PSTREAM_M3U8_PROXY_URL) as string | undefined;
+        if (envProxy) {
+          setM3U8ProxyUrl(envProxy);
+        } else {
+          setM3U8ProxyUrl(`${window.location.origin}/api/proxy`);
+        }
+      } catch (e) {
+        // noop
+      }
+    }
     cachedProviders = makeProviders({
       fetcher: sharedFetcher,
       proxiedFetcher: sharedFetcher,

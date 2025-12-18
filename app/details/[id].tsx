@@ -148,7 +148,20 @@ const MovieDetailsContainer: React.FC = () => {
       console.error('Error starting chat: ', error);
     }
   };
-  
+
+  const handleWatchTrailer = () => {
+    setIsVideoVisible(true);
+  };
+
+  const handleBack = () => {
+    router.back();
+  };
+
+  const handleAddToMyList = (movie: Media) => {
+    // TODO: implement add to my list
+    console.log('Add to my list:', movie);
+  };
+
   const handleSelectRelated = (relatedId: number) => {
     const relatedItem = relatedMovies.find((item) => item.id === relatedId);
     if (relatedItem) {

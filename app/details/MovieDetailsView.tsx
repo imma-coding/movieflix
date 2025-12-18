@@ -5,7 +5,7 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { emitDownloadEvent } from '../../lib/downloadEvents';
 import { ensureDownloadDir, guessFileExtension, persistDownloadRecord } from '../../lib/fileUtils';
 import { downloadHlsPlaylist } from '../../lib/hlsDownloader';
-import { scrapeImdbTrailer } from '../../providers-temp/src/scrapeImdbTrailer';
+import { scrapeImdbTrailer as scrapeIMDbTrailer } from '../../src/providers/scrapeImdbTrailer';
 import { usePStream } from '../../src/pstream/usePStream';
 
 import { CastMember, Media } from '../../types';
@@ -50,7 +50,7 @@ const MovieDetailsView: React.FC<Props> = ({
   mediaType,
   cast,
 }) => {
-  const [imdbTrailerUrl, setImdbTrailerUrl] = useState<string | null>(null);
+  const [imdbTrailerUrl, setIMDbTrailerUrl] = useState<string | null>(null);
   const [autoPlayed, setAutoPlayed] = useState(false);
   const autoPlayTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
@@ -59,23 +59,23 @@ const MovieDetailsView: React.FC<Props> = ({
   const { scrape: scrapeDownload } = usePStream();
   // Auto-fetch IMDb trailer and auto-play after a delay
   useEffect(() => {
-    setImdbTrailerUrl(null);
+    setIMDbTrailerUrl(null);
     setAutoPlayed(false);
     if (!movie || !movie.imdb_id) return;
     let cancelled = false;
-    scrapeImdbTrailer({ imdb_id: movie.imdb_id })
+    scrapeIMDbTrailer({ imdb_id: movie.imdb_id })
       .then((url) => {
         if (!cancelled && url) {
-          setImdbTrailerUrl(url);
+          setIMDbTrailerUrl(url);
           // Auto-play after 2 seconds if not already played
           if (!autoPlayed) {
             autoPlayTimeout.current = setTimeout(() => {
               setAutoPlayed(true);
               // You can trigger your video player modal here, or call onWatchTrailer with the direct URL
               if (url) {
-                // If you have a handler for direct video URLs, use it here
-                // For now, fallback to onWatchTrailer if it accepts a URL
-                if (typeof onWatchTrailer === 'function') onWatchTrailer(url);
+              // If you have a handler for direct video URLs, use it here
+              // For now, fallback to onWatchTrailer if it accepts a URL
+                if (typeof onWatchTrailer === 'function' && url) onWatchTrailer(url);
               }
             }, 2000);
           }

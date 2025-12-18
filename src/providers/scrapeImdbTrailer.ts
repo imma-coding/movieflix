@@ -41,22 +41,73 @@ export const scrapeImdbTrailer = async ({ imdb_id }: { imdb_id: string }): Promi
     const embedPageHtml = await embedPageResponse.text();
 
     // Step 3: Extract the video source URL from the embedded JSON state
-    const jsonMatch = embedPageHtml.match(/IMDbReactInitialState\.push\(({.*})\)/);
+    // Try several patterns to be resilient to IMDb changes.
+    const tryPatterns = [
+      /IMDbReactInitialState\.push\(({[\s\S]*?})\)/,
+      /window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?})\s*;/,
+      /IMDbReactInitialState\s*=\s*({[\s\S]*?})\s*;/,
+    ];
 
-    if (!jsonMatch || !jsonMatch[1]) {
+    let state: any = null;
+
+    for (const pat of tryPatterns) {
+      const m = embedPageHtml.match(pat as RegExp);
+      if (m && m[1]) {
+        try {
+          state = JSON.parse(m[1]);
+          break;
+        } catch (err) {
+          // continue to other patterns
+        }
+      }
+    }
+
+    // Fallback: try to find the `videoLegacyEncodings` token anywhere in the HTML
+    // and extract the surrounding JSON object using brace matching.
+    if (!state) {
+      const key = 'videoLegacyEncodings';
+      const keyIdx = embedPageHtml.indexOf(key);
+      if (keyIdx !== -1) {
+        // find opening brace before the key
+        let start = embedPageHtml.lastIndexOf('{', keyIdx);
+        if (start === -1) start = embedPageHtml.indexOf('{', Math.max(0, keyIdx - 200));
+        if (start !== -1) {
+          // find matching closing brace
+          let depth = 0;
+          let end = -1;
+          for (let i = start; i < embedPageHtml.length; i++) {
+            const ch = embedPageHtml[i];
+            if (ch === '{') depth++;
+            else if (ch === '}') depth--;
+            if (depth === 0) { end = i + 1; break; }
+          }
+          if (end !== -1) {
+            const candidate = embedPageHtml.slice(start, end);
+            try {
+              state = JSON.parse(candidate);
+            } catch (err) {
+              // ignore parse error
+            }
+          }
+        }
+      }
+    }
+
+    if (!state) {
       console.error(`Could not find IMDbReactInitialState JSON on embed page for ${videoId}.`);
       return null;
     }
 
-    const state = JSON.parse(jsonMatch[1]);
-    const encodings = state?.videos?.videoLegacyEncodings;
+    const encodings = state?.videos?.videoLegacyEncodings || state?.videoLegacyEncodings || null;
 
     if (!Array.isArray(encodings) || encodings.length === 0) {
       console.warn(`No video encodings found in IMDb data for ${videoId}.`);
       return null;
     }
 
-    const preferred = encodings.find(e => e.definition === '720p') || encodings.find(e => e.definition === '1080p');
+    const preferred = Array.isArray(encodings)
+      ? encodings.find((e: any) => e.definition === '720p') || encodings.find((e: any) => e.definition === '1080p')
+      : null;
     const chosenEncoding = preferred || encodings[0];
     const videoUrl = chosenEncoding?.videoUrl;
 
